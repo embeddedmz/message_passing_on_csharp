@@ -6,27 +6,24 @@ namespace MessagePassingExample
 {
     public class ResourceManager
     {
-        public void UpdateStatus()
+        public void UpdateStatus(int value)
         {
-            if (true)
-            {
-                ResourceStatusEventArgs args = new ResourceStatusEventArgs();
-                args.SomeValue = 42;
-                args.Timestamp = DateTime.Now;
-                OnResourceStatusUpdated(args);
-            }
+            ResourceStatusEventArgs args = new ResourceStatusEventArgs();
+            args.SomeValue = value;
+            args.Timestamp = DateTime.Now;
+            OnResourceStatusUpdated(args);
         }
 
         protected virtual void OnResourceStatusUpdated(ResourceStatusEventArgs e)
         {
-            EventHandler<ResourceStatusEventArgs> handler = ThresholdReached;
+            EventHandler<ResourceStatusEventArgs> handler = ResourceStatusUpdated;
             if (handler != null)
             {
                 handler(this, e);
             }
         }
 
-        public event EventHandler<ResourceStatusEventArgs> ThresholdReached;
+        public event EventHandler<ResourceStatusEventArgs> ResourceStatusUpdated;
 
         public string SendData(string data)
         {
