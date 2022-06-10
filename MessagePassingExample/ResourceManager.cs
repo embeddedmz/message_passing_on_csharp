@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 
 namespace MessagePassingExample
 {
@@ -25,9 +26,10 @@ namespace MessagePassingExample
 
         public event EventHandler<ResourceStatusEventArgs> ResourceStatusUpdated;
 
-        public string SendData(string data)
+        public string SendData(int threadId)
         {
-            return "Reply received at " + DateTime.Now;
+            return String.Format("Reply to thread Id {0} received at {1} from thread {2}.",
+                threadId, DateTime.Now, Thread.CurrentThread.ManagedThreadId);
         }
     }
 
