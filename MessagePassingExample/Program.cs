@@ -49,7 +49,7 @@ namespace MessagePassingExample
             Program prog = new Program();
             prog.Start(); // start the thread managing the resource
 
-            // subscribe to get the status of the resource and print it using the main thread (or another thread eventually)
+            // subscribe to get the status of the resource
             prog.resource.ResourceStatusUpdated += OnResourceStatusUpdated;
 
             // spawn one thread here that will communicate with the thread managing the resource using prog.Enqueue(...)
@@ -80,12 +80,20 @@ namespace MessagePassingExample
             webServerThread.Join();
         }
 
+        static ResourceStatusEventArgs s_lastResourceStatus;
+        static readonly object s_lastResourceStatusLock = new object();
         static void OnResourceStatusUpdated(object sender, ResourceStatusEventArgs e)
         {
             // "e" members should be immutable (like strings) so that it remains coherent
             // in a multithreaded context as long as we don't change the values of the members
             // and we just use them
-            Console.WriteLine("Resource status has been updated at {0}: {1}.", e.Timestamp, e.SomeValue);
+            Console.WriteLine("[Thread {0}] Resource status has been updated at {1}: {2}.",
+                Thread.CurrentThread.ManagedThreadId, e.Timestamp, e.SomeValue);
+
+            lock (s_lastResourceStatusLock)
+            {
+                s_lastResourceStatus = e;
+            }
         }
     }
 }
