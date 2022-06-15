@@ -18,10 +18,11 @@ namespace MessagePassingExample
         }
 
         public ResourceManager resource = new ResourceManager(); // should be a singleton/static class...
-        private BlockingCollection<Action<ResourceManager>> queue = new BlockingCollection<Action<ResourceManager>>();
+        public readonly BlockingCollection<Action<ResourceManager>> queue = new BlockingCollection<Action<ResourceManager>>();
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
         private readonly Random rnd = new Random();
-        public void Start() => Task.Run(ThreadMain);
+        private Timer refreshStatusTimer;
+        public Task Start() => Task.Run(ThreadMain);
         public Task<T> Enqueue<T>(Func<ResourceManager, T> method)
         {
             var tcs = new TaskCompletionSource<T>();
@@ -30,7 +31,19 @@ namespace MessagePassingExample
         }
         private void ThreadMain()
         {
-            while (!_cts.Token.IsCancellationRequested)
+            foreach (var action in queue.GetConsumingEnumerable())
+            {
+                try
+                {
+                    action(resource);
+                }
+                catch
+                {
+                    Console.WriteLine("[Error] Caught an exception in ThreadMain !");
+                }
+            }
+
+            /*while (!_cts.Token.IsCancellationRequested)
             {
                 while (queue.TryTake(out var action, 100))
                 {
@@ -41,13 +54,14 @@ namespace MessagePassingExample
                 resource.UpdateStatus(rnd.Next(0, 100));
 
                 Thread.Sleep(100);
-            }
+            }*/
         }
 
+        
         static void Main(string[] args)
         {
             Program prog = new Program();
-            prog.Start(); // start the thread managing the resource
+            Task mainTask = prog.Start(); // start the thread managing the resource
 
             // subscribe to get the status of the resource
             prog.resource.ResourceStatusUpdated += OnResourceStatusUpdated;
@@ -67,6 +81,15 @@ namespace MessagePassingExample
             });
             webServerThread.Start();
 
+            prog.refreshStatusTimer = new Timer((o) =>
+            {
+                prog.Enqueue((ResourceManager r) =>
+                {
+                    r.UpdateStatus(prog.rnd.Next(0, 100));
+                    return true; // we can't enqueue lambdas that have void as a return type :\
+                });
+            }, null, 1000, 1000);
+
             // and use the main thread too
             int mainThreadId = Thread.CurrentThread.ManagedThreadId; // do not use this in the lambda otherwise you will get the resource manager thread id
             while (!prog._cts.Token.IsCancellationRequested)
@@ -78,6 +101,13 @@ namespace MessagePassingExample
             }
 
             webServerThread.Join();
+
+            prog.refreshStatusTimer.Change(Timeout.Infinite, Timeout.Infinite);
+            prog.refreshStatusTimer.Dispose();
+            prog.refreshStatusTimer = null;
+
+            prog.queue.CompleteAdding();
+            mainTask.Wait();
         }
 
         static ResourceStatusEventArgs s_lastResourceStatus;
